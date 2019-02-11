@@ -9,10 +9,10 @@
 // convert MNIST file to Image structure
 
 #define PIXEL_SIZE 28*28
-#define IMAGE_NUMBERS 100
+#define IMAGE_NUMBERS 1
 #define KBR_FALSE 0
 #define KBR_TRUE 1
-#define NUM_HIDDEN 20
+#define NUM_HIDDEN 100
 #define LOOP_TIMES 1000
 #define OUTPUT_NUMBERS 10
 
@@ -236,13 +236,13 @@ double d_sigmoid(double x) {
 
 bool Perceptron(MNIST_IMAGE *MnistImage) {
 	static double w[NUM_HIDDEN + 1][PIXEL_SIZE + 1];
-	static double v[NUM_HIDDEN + 1];
+	static double v[NUM_HIDDEN + 1][OUTPUT_NUMBERS + 1];
 	static double y[IMAGE_NUMBERS + 1][NUM_HIDDEN + 1];
-	static double z[IMAGE_NUMBERS + 1];
+	static double z[IMAGE_NUMBERS + 1][OUTPUT_NUMBERS + 1];
 
-	double eta = 20;
+	double eta = 0.5;
 	int UpdateTimes = LOOP_TIMES;
-	int i, j, k, l, m;
+	int i, j, k, l, n;
 	double tmp = 0;
 
 	//入力層から中間層への重みをランダムで決める。
@@ -252,62 +252,72 @@ bool Perceptron(MNIST_IMAGE *MnistImage) {
 		}
 	}
 	//中間層から出力層への重みをランダムで決める
-	for (i = 0; i < NUM_HIDDEN + 1; i++) {
-		v[i] = ((double)rand() / ((double)RAND_MAX + 1));
+	for (j = 0; j < OUTPUT_NUMBERS + 1; j++) {
+		for (l = 0; l < NUM_HIDDEN + 1; l++) {
+			v[j][l] = ((double)rand() / ((double)RAND_MAX + 1));
+		}
 	}
 
 	for (k = 0; k < UpdateTimes; k++) {
 		//今の重みを用いて入力層から中間層まで通る
-		for (j = 0; j < 10; j++) {
+		for (n = 0; n < IMAGE_NUMBERS; n++) {
 			//hidden
 			for (l = 0; l < NUM_HIDDEN; l++) {
 				for (i = 0; i < PIXEL_SIZE + 1; i++) {
-					tmp += MnistImage[0].Data[i] * w[l][i];
+					tmp += MnistImage[n].Data[i] * w[l][i];
 				}
-				y[j][l] = sigmoid(tmp);
+				y[n][l] = sigmoid(tmp);
 				tmp = 0;
 			}
-			y[j][NUM_HIDDEN] = -1;
+			y[n][NUM_HIDDEN] = -1;
 			//中間層から出力層まで通る
-			for (i = 0; i < NUM_HIDDEN + 1; i++) {
-				tmp += y[j][i] * v[i];
+			for (j = 0; j < OUTPUT_NUMBERS; j++) {
+				for (l = 0; l < NUM_HIDDEN + 1; l++) {
+					tmp += y[n][l] * v[j][l];
+				}
+				z[n][j] = sigmoid(tmp);
+				tmp = 0;
 			}
-			z[j] = sigmoid(tmp);
-			tmp = 0;
 
 			//教師信号の誤差をvに伝播
-			for (i = 0; i < NUM_HIDDEN + 1; i++) {
-				v[i] = v[i] - eta * y[j][i] * d_sigmoid(z[j]) * (z[j] - MnistImage[0].Label[j]);
+			for (j = 0; j < OUTPUT_NUMBERS; j++) {
+				for (l = 0; l < NUM_HIDDEN + 1; l++) {
+					v[j][l] = v[j][l] - eta * y[n][l] * d_sigmoid(z[n][j]) * (z[n][j] - MnistImage[n].Label[j]);
+				}
 			}
 
 			//wに伝播
-			for (l = 0; l < PIXEL_SIZE + 1; l++) {
-				for (i = 0; i < NUM_HIDDEN + 1; i++) {
-					w[i][l] = w[i][l] - eta * MnistImage[j].Data[l] * d_sigmoid(y[j][i]) * d_sigmoid(z[j]) * (z[j] - MnistImage[0].Label[j]) * v[i];
+			for (j = 0; j < OUTPUT_NUMBERS; j++) {
+				for (l = 0; l < NUM_HIDDEN + 1; l++) {
+					for (i = 0; i < PIXEL_SIZE + 1; i++) {
+						w[l][i] = w[l][i] - eta * MnistImage[n].Data[i] * d_sigmoid(y[n][l]) * d_sigmoid(z[n][j]) * (z[n][j] - MnistImage[n].Label[j]) * v[j][l];
+					}
 				}
 			}
 		}
 	}
 
-	for (j = 0; j < 10; j++) {
+	for (n = 0; n < IMAGE_NUMBERS; n++) {
 		for (l = 0; l < NUM_HIDDEN; l++) {
 			for (i = 0; i < PIXEL_SIZE + 1; i++) {
-				tmp += MnistImage[0].Data[i] * w[l][i];
+				tmp += MnistImage[n].Data[l] * w[l][i];
 			}
-			y[j][l] = sigmoid(tmp);
+			y[n][l] = sigmoid(tmp);
 			tmp = 0;
 		}
 		y[j][NUM_HIDDEN] = -1;
-		for (i = 0; i < NUM_HIDDEN + 1; i++) {
-			tmp += y[j][i] * v[i];
+		for (j = 0; j < OUTPUT_NUMBERS; j++) {
+			for (l = 0; l < NUM_HIDDEN + 1; l++) {
+				tmp += y[n][l] * v[j][l];
+			}
+			z[n][j] = sigmoid(tmp);
+			tmp = 0;
 		}
-		z[j] = sigmoid(tmp);
-		tmp = 0;
 	}
 
 	printf("z=");
-	for (i = 0; i < 10; i++) {
-		printf("%f ", z[i]);
+	for (j = 0; j < OUTPUT_NUMBERS; j++) {
+		printf("%f ", z[1][j]);
 	}
 	printf("LoopNumber:%d\n", k);
 	return KBR_TRUE;
